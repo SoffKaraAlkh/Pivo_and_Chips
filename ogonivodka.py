@@ -27,15 +27,22 @@ class Character:
         self.jump_power = 10
         self.y_velocity = 0
         self.on_ground = False
+        self.prev_x = x
+        self.prev_y = y
     
     def draw(self):
         pygame.draw.rect(screen, self.color, (self.x, self.y, self.size, self.size))
     
     def move(self, dx, dy):
+        self.prev_x = self.x
+        self.prev_y = self.y
         self.x += dx
         self.y += dy
     
     def update(self, platforms):
+        # Сохраняем предыдущую позицию
+        self.prev_x = self.x
+        self.prev_y = self.y
         # Гравитация
         self.y_velocity += 0.5
         self.y += self.y_velocity
@@ -43,31 +50,9 @@ class Character:
         # Проверка столкновений с платформами
         self.on_ground = False
         for platform in platforms:
-            if (self.y + self.size >= platform.y and 
-                self.y + self.size <= platform.y + 10 and
-                self.x + self.size > platform.x and 
-                self.x < platform.x + platform.width and
-                self.y_velocity > 0):
-                self.y = platform.y - self.size
-                self.y_velocity = 0
-                self.on_ground = True
-
-            elif (self.y <= platform.y + platform.height and 
-                self.y + self.size > platform.y + platform.height and
-                self.x + self.size > platform.x and 
-                self.x < platform.x + platform.width and
-                self.y_velocity < 0):  # Только если движется вверх
-                self.y = platform.y + platform.height
-                self.y_velocity = 0
-
-            #elif (self.x <= platform.x + platform.width and
-                  #self.x + self.size > platform.x + platform.width and
-                  #self.y + self.size > platform.y + platform.height and
-                  #self.x < platform.x + platform.width):
-                #if (self.y_velocity <0 or self.y_velocity >0):
-                  #self.y = platform.y + platform.height
-                  #self.x = self.x
-                  #self.y_velocity = 0
+            # Проверяем столкновение по всем направлениям
+            if self.check_collision(platform):
+                self.resolve_collision(platform)
         
         # Границы экрана
         if self.x < 0:
@@ -78,6 +63,36 @@ class Character:
             self.y = HEIGHT - self.size
             self.y_velocity = 0
             self.on_ground = True
+
+    def check_collision(self, platform):
+        return (self.x < platform.x + platform.width and
+                self.x + self.size > platform.x and
+                self.y < platform.y + platform.height and
+                self.y + self.size > platform.y)
+    
+    def resolve_collision(self, platform):
+        # Определяем направление столкновения
+        dx = (self.x + self.size/2) - (platform.x + platform.width/2)
+        dy = (self.y + self.size/2) - (platform.y + platform.height/2)
+        
+        # Вычисляем перекрытие по осям
+        overlap_x = (self.size/2 + platform.width/2) - abs(dx)
+        overlap_y = (self.size/2 + platform.height/2) - abs(dy)
+        
+        # Определяем направление с наименьшим перекрытием
+        if overlap_x < overlap_y:
+            if dx > 0:  # Столкновение справа
+                self.x = platform.x + platform.width
+            else:       # Столкновение слева
+                self.x = platform.x - self.size
+        else:
+            if dy > 0:  # Столкновение снизу
+                self.y = platform.y + platform.height
+                self.y_velocity = 0
+            else:       # Столкновение сверху
+                self.y = platform.y - self.size
+                self.y_velocity = 0
+                self.on_ground = True
     
     def jump(self):
         if self.on_ground:
